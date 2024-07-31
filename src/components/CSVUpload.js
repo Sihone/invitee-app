@@ -73,7 +73,7 @@ const CSVUpload = () => {
 
   const handleCheckboxChange = (index) => {
     setAttendance(prev => {
-      const updatedAttendance = { ...prev, [index]: !prev[index] };
+      const updatedAttendance = { ...prev, [index]: prev[index] === "true" ? "false" : "true" };
       const updatedData = data.map((item, idx) =>
         idx === index ? { ...item, attended: updatedAttendance[index] } : item
       );

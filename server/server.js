@@ -40,7 +40,6 @@ app.get('/data', (req, res) => {
   }
 });
 
-// Endpoint to update the CSV file
 app.post('/update', upload.single('file'), (req, res) => {
   res.send('File updated successfully.');
 });
@@ -57,17 +56,40 @@ app.post('/add', (req, res) => {
   const csvWriter = createObjectCsvWriter({
     path: filePath,
     header: [
-      { id: 'name', title: 'Name / Nom ' },
+      { id: 'timestamp', title: 'Timestamp' },
       { id: 'email', title: 'Email Address' },
+      { id: 'name', title: 'Name / Nom ' },
+      { id: 'gender', title: 'Gender / Genre' },
       { id: 'phone', title: 'Phone number / Numéro de téléphone' },
       { id: 'status', title: 'Status / Statut' },
-      { id: 'comment', title: "What do you hope gain from this seminar? Qu'espérez-vous de ce séminaire ?" },
+      { id: 'fieldOfInterest', title: 'Field of Interest / Domaine d\'intérêt' },
+      { id: 'howHeard', title: 'How did you hear about this event?' },
+      { id: 'whatHopeToGain', title: 'What do you hope gain from this seminar? Qu\'espérez-vous de ce séminaire ?' },
+      { id: 'additionalComments', title: 'Additional comments / Commentaires supplémentaires' },
+      { id: 'empty1', title: '' }, // Empty string column
+      { id: 'empty2', title: '' }, // Empty string column
       { id: 'attended', title: 'attended' }
     ],
     append: true
   });
 
-  csvWriter.writeRecords([newEntry])
+  const formattedEntry = {
+    timestamp: newEntry.timestamp || '',
+    email: newEntry.email || '',
+    name: newEntry.name || '',
+    gender: newEntry.gender || '',
+    phone: newEntry.phone || '',
+    status: newEntry.status || '',
+    fieldOfInterest: newEntry.fieldOfInterest || '',
+    howHeard: newEntry.howHeard || '',
+    whatHopeToGain: newEntry.whatHopeToGain || '',
+    additionalComments: newEntry.additionalComments || '',
+    empty1: '',
+    empty2: '',
+    attended: newEntry.attended || 'false'
+  };
+
+  csvWriter.writeRecords([formattedEntry])
     .then(() => {
       res.status(200).json({ message: 'New entry added successfully.' });
     })
