@@ -80,6 +80,9 @@ const CSVUpload = () => {
       setData(updatedData);
       return updatedAttendance;
     });
+    // setTimeout(async () => {
+    //   await saveAttendance();
+    // }, 1000);
   };
 
   const saveAttendance = async () => {

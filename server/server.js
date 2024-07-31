@@ -42,46 +42,8 @@ app.get('/data', (req, res) => {
   }
 });
 
-// Endpoint to update the CSV file with new data
 app.post('/update', upload.single('file'), (req, res) => {
-  const filePath = path.join(__dirname, 'public/uploads/data.csv');
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).send('CSV file not found.');
-  }
-
-  Papa.parse(fs.createReadStream(filePath), {
-    header: true,
-    complete: (results) => {
-      const existingData = results.data;
-      const updatedData = existingData.map(row => ({
-        ...row,
-        attended: req.body.attendance[row['Email Address']] || row.attended
-      }));
-
-      const csvWriter = createObjectCsvWriter({
-        path: filePath,
-        header: [
-          { id: 'timestamp', title: 'Timestamp' },
-          { id: 'email', title: 'Email Address' },
-          { id: 'name', title: 'Name / Nom ' },
-          { id: 'gender', title: 'Gender / Genre' },
-          { id: 'phone', title: 'Phone number / Numéro de téléphone' },
-          { id: 'status', title: 'Status / Statut' },
-          { id: 'fieldOfInterest', title: 'Field of Interest / Domaine d\'intérêt' },
-          { id: 'howHeard', title: 'How did you hear about this event?' },
-          { id: 'whatHopeToGain', title: 'What do you hope gain from this seminar? Qu\'espérez-vous de ce séminaire ?' },
-          { id: 'additionalComments', title: 'Additional comments / Commentaires supplémentaires' },
-          { id: 'empty1', title: '' }, // Empty string column
-          { id: 'empty2', title: '' }, // Empty string column
-          { id: 'attended', title: 'attended' }
-        ]
-      });
-
-      csvWriter.writeRecords(updatedData)
-        .then(() => res.status(200).json({ message: 'CSV file updated successfully.' }))
-        .catch(err => res.status(500).json({ error: 'Failed to update CSV file.' }));
-    }
-  });
+  res.send('File updated successfully.');
 });
 
 // Endpoint to add a new entry to the CSV file
