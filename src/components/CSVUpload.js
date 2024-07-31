@@ -1,20 +1,27 @@
-// src/components/CSVUpload.js
 import React, { useEffect, useState } from 'react';
 import Papa from 'papaparse';
-import { Table, InputGroup, FormControl, Button } from 'react-bootstrap';
+import { Table, InputGroup, FormControl, Button, Form } from 'react-bootstrap';
 import axios from 'axios';
 
 const CSVUpload = () => {
   const [data, setData] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [attendance, setAttendance] = useState({});
+  const [toggleAddEntry, setToggleAddEntry] = useState(false);
+  const [newEntry, setNewEntry] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    status: '',
+    comment: '',
+    attended: false,
+  });
   const serverUrl = "http://localhost:5005";
 
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
-    // Upload file to server
     const formData = new FormData();
     formData.append('file', file);
 
@@ -25,7 +32,6 @@ const CSVUpload = () => {
         },
       });
 
-      // Fetch the uploaded file
       fetchCSVData();
     } catch (error) {
       console.error('Error uploading file:', error);
@@ -45,7 +51,6 @@ const CSVUpload = () => {
             ...row
           }));
           setData(dataWithAttendance);
-          // Initialize attendance state
           setAttendance(dataWithAttendance.reduce((acc, row, index) => ({
             ...acc,
             [index]: row.attended
@@ -69,7 +74,6 @@ const CSVUpload = () => {
   const handleCheckboxChange = (index) => {
     setAttendance(prev => {
       const updatedAttendance = { ...prev, [index]: !prev[index] };
-      // Update local data
       const updatedData = data.map((item, idx) =>
         idx === index ? { ...item, attended: updatedAttendance[index] } : item
       );
@@ -79,10 +83,8 @@ const CSVUpload = () => {
   };
 
   const saveAttendance = async () => {
-    // Convert data to CSV format
     const csv = Papa.unparse(data);
 
-    // Upload updated CSV to server
     try {
       const formData = new FormData();
       formData.append('file', new Blob([csv], { type: 'text/csv' }), 'data.csv');
@@ -96,6 +98,30 @@ const CSVUpload = () => {
       alert('Attendance saved successfully.');
     } catch (error) {
       console.error('Error saving attendance:', error);
+    }
+  };
+
+  const handleInputChange = (event) => {
+    const { name, value } = event.target;
+    setNewEntry({ ...newEntry, [name]: value });
+  };
+
+  const handleAddEntry = async (event) => {
+    event.preventDefault();
+    try {
+      await axios.post(serverUrl + '/add', newEntry);
+      fetchCSVData();
+      setNewEntry({
+        name: '',
+        email: '',
+        phone: '',
+        status: '',
+        comment: '',
+        attended: false,
+      });
+      alert('New entry added successfully.');
+    } catch (error) {
+      console.error('Error adding new entry:', error);
     }
   };
 
@@ -115,8 +141,69 @@ const CSVUpload = () => {
           onChange={handleSearch}
         />
       </InputGroup>
+      
       <input type="file" accept=".csv" onChange={handleFileUpload} />
-      <Button variant="primary" onClick={saveAttendance} className="mt-3">Save Attendance</Button>
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <Button variant="primary" onClick={saveAttendance} className="mt-3">Save Attendance</Button>
+        <Button variant="primary" onClick={() => setToggleAddEntry(!toggleAddEntry)} className="mt-3">
+          {toggleAddEntry ? 'Close Add Entry' : 'Add Entry'}
+        </Button>
+      </div>
+
+      {toggleAddEntry &&
+        <Form className="mt-4" onSubmit={handleAddEntry}>
+          <h2>Add New Entry</h2>
+          <Form.Group>
+            <Form.Label>Name</Form.Label>
+            <Form.Control
+              type="text"
+              name="name"
+              value={newEntry.name}
+              onChange={handleInputChange}
+              required
+            />
+          </Form.Group>
+          <Form.Group>
+            <Form.Label>Email</Form.Label>
+            <Form.Control
+              type="email"
+              name="email"
+              value={newEntry.email}
+              onChange={handleInputChange}
+              required
+            />
+          </Form.Group>
+          <Form.Group>
+            <Form.Label>Phone</Form.Label>
+            <Form.Control
+              type="text"
+              name="phone"
+              value={newEntry.phone}
+              onChange={handleInputChange}
+            />
+          </Form.Group>
+          <Form.Group>
+            <Form.Label>Status</Form.Label>
+            <Form.Control
+              type="text"
+              name="status"
+              value={newEntry.status}
+              onChange={handleInputChange}
+            />
+          </Form.Group>
+          <Form.Group>
+            <Form.Label>Comment</Form.Label>
+            <Form.Control
+              type="text"
+              name="comment"
+              value={newEntry.comment}
+              onChange={handleInputChange}
+            />
+          </Form.Group>
+          <Button variant="success" type="submit">Add Entry</Button>
+        </Form>
+      }
+
       <Table striped bordered hover className="mt-4">
         <thead>
           <tr>
