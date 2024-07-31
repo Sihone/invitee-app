@@ -3,14 +3,16 @@ const multer = require('multer');
 const path = require('path');
 const cors = require('cors');
 const fs = require('fs');
-const { createObjectCsvWriter } = require('csv-writer');
+const { createObjectCsvWriter, createCsvWriter } = require('csv-writer');
+const { format } = require('date-fns');
+const Papa = require('papaparse');
 
 const app = express();
 const port = 5005;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json()); // Parse JSON bodies
 app.use(express.static('public'));
 
 // Configure multer for file storage
@@ -40,11 +42,49 @@ app.get('/data', (req, res) => {
   }
 });
 
+// Endpoint to update the CSV file with new data
 app.post('/update', upload.single('file'), (req, res) => {
-  res.send('File updated successfully.');
+  const filePath = path.join(__dirname, 'public/uploads/data.csv');
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).send('CSV file not found.');
+  }
+
+  Papa.parse(fs.createReadStream(filePath), {
+    header: true,
+    complete: (results) => {
+      const existingData = results.data;
+      const updatedData = existingData.map(row => ({
+        ...row,
+        attended: req.body.attendance[row['Email Address']] || row.attended
+      }));
+
+      const csvWriter = createObjectCsvWriter({
+        path: filePath,
+        header: [
+          { id: 'timestamp', title: 'Timestamp' },
+          { id: 'email', title: 'Email Address' },
+          { id: 'name', title: 'Name / Nom ' },
+          { id: 'gender', title: 'Gender / Genre' },
+          { id: 'phone', title: 'Phone number / Numéro de téléphone' },
+          { id: 'status', title: 'Status / Statut' },
+          { id: 'fieldOfInterest', title: 'Field of Interest / Domaine d\'intérêt' },
+          { id: 'howHeard', title: 'How did you hear about this event?' },
+          { id: 'whatHopeToGain', title: 'What do you hope gain from this seminar? Qu\'espérez-vous de ce séminaire ?' },
+          { id: 'additionalComments', title: 'Additional comments / Commentaires supplémentaires' },
+          { id: 'empty1', title: '' }, // Empty string column
+          { id: 'empty2', title: '' }, // Empty string column
+          { id: 'attended', title: 'attended' }
+        ]
+      });
+
+      csvWriter.writeRecords(updatedData)
+        .then(() => res.status(200).json({ message: 'CSV file updated successfully.' }))
+        .catch(err => res.status(500).json({ error: 'Failed to update CSV file.' }));
+    }
+  });
 });
 
-// Endpoint to add a new entry
+// Endpoint to add a new entry to the CSV file
 app.post('/add', (req, res) => {
   const newEntry = req.body;
   const filePath = path.join(__dirname, 'public/uploads/data.csv');
@@ -74,7 +114,7 @@ app.post('/add', (req, res) => {
   });
 
   const formattedEntry = {
-    timestamp: newEntry.timestamp || '',
+    timestamp: format(new Date(), 'M/d/yyyy HH:mm:ss'),
     email: newEntry.email || '',
     name: newEntry.name || '',
     gender: newEntry.gender || '',
@@ -90,9 +130,7 @@ app.post('/add', (req, res) => {
   };
 
   csvWriter.writeRecords([formattedEntry])
-    .then(() => {
-      res.status(200).json({ message: 'New entry added successfully.' });
-    })
+    .then(() => res.status(200).json({ message: 'New entry added successfully.' }))
     .catch((err) => {
       console.error('Error writing to CSV:', err);
       res.status(500).json({ error: 'Failed to add new entry.' });

@@ -14,7 +14,7 @@ const CSVUpload = () => {
     phone: '',
     status: '',
     comment: '',
-    attended: false,
+    attended: true,
   });
   const serverUrl = "http://localhost:5005";
 
@@ -117,7 +117,7 @@ const CSVUpload = () => {
         phone: '',
         status: '',
         comment: '',
-        attended: false,
+        attended: true,
       });
       alert('New entry added successfully.');
     } catch (error) {
