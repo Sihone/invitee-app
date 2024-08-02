@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import Papa from 'papaparse';
 import { Table, InputGroup, FormControl, Button, Form } from 'react-bootstrap';
 import axios from 'axios';
 
@@ -8,97 +7,68 @@ const CSVUpload = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [attendance, setAttendance] = useState({});
   const [toggleAddEntry, setToggleAddEntry] = useState(false);
+  const [checkedClicked, setCheckedClicked] = useState(null);
   const [newEntry, setNewEntry] = useState({
     name: '',
     email: '',
+    gender: 'Male', // Default value
     phone: '',
     status: '',
+    interest: '',
     comment: '',
-    attended: true,
+    present: 1,
   });
   const serverUrl = "http://localhost:5005";
 
-  const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('file', file);
-
+  const fetchMySQLData = async () => {
     try {
-      await axios.post(serverUrl + '/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await axios.get(serverUrl + '/data');
+      const rows = response.data;
 
-      fetchCSVData();
-    } catch (error) {
-      console.error('Error uploading file:', error);
-    }
-  };
-
-  const fetchCSVData = async () => {
-    try {
-      const response = await axios.get(serverUrl + '/data', {
-        responseType: 'blob'
-      });
-
-      Papa.parse(response.data, {
-        header: true,
-        complete: (results) => {
-          const dataWithAttendance = results.data.map(row => ({
-            ...row
-          }));
-          setData(dataWithAttendance);
-          setAttendance(dataWithAttendance.reduce((acc, row, index) => ({
-            ...acc,
-            [index]: row.attended
-          }), {}));
-        },
-        skipEmptyLines: true,
-      });
+      setData(rows);
+      setAttendance(
+        rows.reduce((acc, row) => ({ ...acc, [row.id]: row.present === 1 }), {})
+      );
     } catch (error) {
       console.error('Error fetching data:', error);
     }
   };
-  
+
   useEffect(() => {
-    fetchCSVData();
+    fetchMySQLData();
   }, []);
 
   const handleSearch = (event) => {
     setSearchTerm(event.target.value.toLowerCase());
   };
 
-  const handleCheckboxChange = (index) => {
+  const handleCheckboxChange = (id) => {
     setAttendance(prev => {
-      const updatedAttendance = { ...prev, [index]: prev[index] === "true" ? "false" : "true" };
-      const updatedData = data.map((item, idx) =>
-        idx === index ? { ...item, attended: updatedAttendance[index] } : item
-      );
+      const updatedAttendance = { ...prev, [id]: !prev[id] };
+      const updatedData = data.map((item, idx) => {
+        if (item.id === id) {
+          setCheckedClicked({ ...item, present: updatedAttendance[id] ? 1 : 0 });
+          return { ...item, present: updatedAttendance[id] ? 1 : 0 };
+        } else {
+          return item;
+        }
+      });
       setData(updatedData);
       return updatedAttendance;
     });
-    // setTimeout(async () => {
-    //   await saveAttendance();
-    // }, 1000);
   };
 
-  const saveAttendance = async () => {
-    const csv = Papa.unparse(data);
+  useEffect(() => {
+    if (checkedClicked) {
+      saveAttendance(checkedClicked);
+      setCheckedClicked(null);
+    }
+  }, [checkedClicked]);
 
+  const saveAttendance = async (item) => {
     try {
-      const formData = new FormData();
-      formData.append('file', new Blob([csv], { type: 'text/csv' }), 'data.csv');
-
-      await axios.post(serverUrl + '/update', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      alert('Attendance saved successfully.');
+      await axios.post(serverUrl + '/update', item);
+      console.log('Attendance saved successfully.');
     } catch (error) {
       console.error('Error saving attendance:', error);
     }
@@ -113,14 +83,16 @@ const CSVUpload = () => {
     event.preventDefault();
     try {
       await axios.post(serverUrl + '/add', newEntry);
-      fetchCSVData();
+      fetchMySQLData();
       setNewEntry({
         name: '',
         email: '',
+        gender: 'Male',
         phone: '',
         status: '',
+        interest: '',
         comment: '',
-        attended: true,
+        present: 1,
       });
       alert('New entry added successfully.');
     } catch (error) {
@@ -129,9 +101,9 @@ const CSVUpload = () => {
   };
 
   const filteredData = data.filter((row) => {
-    return Object.values(row).some(
-      (value) => value.toLowerCase().includes(searchTerm)
-    );
+    return Object.values(row).some((value) => {
+      return value && value.toString().toLowerCase().includes(searchTerm);
+    });
   });
 
   return (
@@ -145,9 +117,7 @@ const CSVUpload = () => {
         />
       </InputGroup>
       
-      <input type="file" accept=".csv" onChange={handleFileUpload} />
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-        <Button variant="primary" onClick={saveAttendance} className="mt-3">Save Attendance</Button>
         <Button variant="primary" onClick={() => setToggleAddEntry(!toggleAddEntry)} className="mt-3">
           {toggleAddEntry ? 'Close Add Entry' : 'Add Entry'}
         </Button>
@@ -177,6 +147,13 @@ const CSVUpload = () => {
             />
           </Form.Group>
           <Form.Group>
+            <Form.Label>Gender</Form.Label>
+            <Form.Control as="select" name="gender" value={newEntry.gender} onChange={handleInputChange}>
+              <option>Male</option>
+              <option>Female</option>
+            </Form.Control>
+          </Form.Group>
+          <Form.Group>
             <Form.Label>Phone</Form.Label>
             <Form.Control
               type="text"
@@ -191,6 +168,15 @@ const CSVUpload = () => {
               type="text"
               name="status"
               value={newEntry.status}
+              onChange={handleInputChange}
+            />
+          </Form.Group>
+          <Form.Group>
+            <Form.Label>Interest</Form.Label>
+            <Form.Control
+              type="text"
+              name="interest"
+              value={newEntry.interest}
               onChange={handleInputChange}
             />
           </Form.Group>
@@ -213,8 +199,10 @@ const CSVUpload = () => {
             <th>Present</th>
             <th>Name</th>
             <th>Email</th>
+            <th>Gender</th>
             <th>Phone</th>
             <th>Status</th>
+            <th>Interest</th>
             <th>Comment</th>
           </tr>
         </thead>
@@ -224,15 +212,17 @@ const CSVUpload = () => {
               <td>
                 <input
                   type="checkbox"
-                  checked={attendance[index] === "true" || false}
-                  onChange={() => handleCheckboxChange(index)}
+                  checked={attendance[row.id]}
+                  onChange={() => handleCheckboxChange(row.id)}
                 />
               </td>
-              <td>{row['Name / Nom ']}</td>
-              <td>{row['Email Address']}</td>
-              <td>{row['Phone number / Numéro de téléphone']}</td>
-              <td>{row['Status / Statut']}</td>
-              <td>{row["What do you hope gain from this seminar? Qu'espérez-vous de ce séminaire ?"]}</td>
+              <td>{row.name}</td>
+              <td>{row.email}</td>
+              <td>{row.gender}</td>
+              <td>{row.phone}</td>
+              <td>{row.status}</td>
+              <td>{row.interest}</td>
+              <td>{row.comment}</td>
             </tr>
           ))}
         </tbody>

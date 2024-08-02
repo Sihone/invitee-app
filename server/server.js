@@ -1,105 +1,66 @@
 const express = require('express');
-const multer = require('multer');
-const path = require('path');
+const mysql = require('mysql2');
 const cors = require('cors');
-const fs = require('fs');
-const { createObjectCsvWriter, createCsvWriter } = require('csv-writer');
-const { format } = require('date-fns');
-const Papa = require('papaparse');
 
 const app = express();
-const port = 5005;
-
-// Middleware
+app.use(express.json());
+const { format } = require('date-fns');
 app.use(cors());
-app.use(express.json()); // Parse JSON bodies
-app.use(express.static('public'));
 
-// Configure multer for file storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'public/uploads');
-  },
-  filename: (req, file, cb) => {
-    cb(null, 'data.csv'); // Static file name
-  }
+// Create a MySQL connection pool
+const pool = mysql.createPool({
+  host: 'srv1168.hstgr.io', // Update with your host
+  user: 'u209577136_invitees',      // Update with your MySQL username
+  password: 'Zoorp=5213!',      // Update with your MySQL password
+  database: 'u209577136_invitees', // Update with your database name
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
 });
 
-const upload = multer({ storage });
-
-// Endpoint to handle file uploads
-app.post('/upload', upload.single('file'), (req, res) => {
-  res.send('File uploaded successfully.');
-});
-
-// Endpoint to get the CSV file
+// GET data
 app.get('/data', (req, res) => {
-  const filePath = path.join(__dirname, 'public/uploads/data.csv');
-  if (fs.existsSync(filePath)) {
-    res.sendFile(filePath);
-  } else {
-    res.status(404).send('File not found.');
-  }
-});
-
-app.post('/update', upload.single('file'), (req, res) => {
-  res.send('File updated successfully.');
-});
-
-// Endpoint to add a new entry to the CSV file
-app.post('/add', (req, res) => {
-  const newEntry = req.body;
-  const filePath = path.join(__dirname, 'public/uploads/data.csv');
-
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).send('CSV file not found.');
-  }
-
-  const csvWriter = createObjectCsvWriter({
-    path: filePath,
-    header: [
-      { id: 'timestamp', title: 'Timestamp' },
-      { id: 'email', title: 'Email Address' },
-      { id: 'name', title: 'Name / Nom ' },
-      { id: 'gender', title: 'Gender / Genre' },
-      { id: 'phone', title: 'Phone number / Numéro de téléphone' },
-      { id: 'status', title: 'Status / Statut' },
-      { id: 'fieldOfInterest', title: 'Field of Interest / Domaine d\'intérêt' },
-      { id: 'howHeard', title: 'How did you hear about this event?' },
-      { id: 'whatHopeToGain', title: 'What do you hope gain from this seminar? Qu\'espérez-vous de ce séminaire ?' },
-      { id: 'additionalComments', title: 'Additional comments / Commentaires supplémentaires' },
-      { id: 'empty1', title: '' }, // Empty string column
-      { id: 'empty2', title: '' }, // Empty string column
-      { id: 'attended', title: 'attended' }
-    ],
-    append: true
+  pool.query('SELECT * FROM invitees ORDER BY id DESC', (error, results) => {
+    if (error) {
+      console.error('Error fetching data:', error);
+      res.status(500).send('Error fetching data');
+    } else {
+      res.json(results);
+    }
   });
+});
 
-  const formattedEntry = {
-    timestamp: format(new Date(), 'M/d/yyyy HH:mm:ss'),
-    email: newEntry.email || '',
-    name: newEntry.name || '',
-    gender: newEntry.gender || '',
-    phone: newEntry.phone || '',
-    status: newEntry.status || '',
-    fieldOfInterest: newEntry.fieldOfInterest || '',
-    howHeard: newEntry.howHeard || '',
-    whatHopeToGain: newEntry.whatHopeToGain || '',
-    additionalComments: newEntry.additionalComments || '',
-    empty1: '',
-    empty2: '',
-    attended: newEntry.attended || 'false'
-  };
+// POST add new entry
+app.post('/add', (req, res) => {
+  const { email, name, gender, phone, status, interest, gain, comments, present } = req.body;
+  const sql = `INSERT INTO invitees (timestamp, email, name, gender, phone, status, interest, hear, gain, comments, present) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  pool.query(sql, [format(new Date(), 'M/d/yyyy HH:mm:ss'), email, name, gender, phone, status, interest, "N/A", gain, comments, present], (error, results) => {
+    if (error) {
+      console.error('Error adding new entry:', error);
+      res.status(500).send('Error adding new entry');
+    } else {
+      res.send('New entry added successfully');
+    }
+  });
+});
 
-  csvWriter.writeRecords([formattedEntry])
-    .then(() => res.status(200).json({ message: 'New entry added successfully.' }))
-    .catch((err) => {
-      console.error('Error writing to CSV:', err);
-      res.status(500).json({ error: 'Failed to add new entry.' });
-    });
+// POST update attendance
+app.post('/update', (req, res) => {
+  const { id, present } = req.body;
+  const sql = 'UPDATE invitees SET present = ? WHERE id = ?';
+  pool.query(sql, [present, id], (error, results) => {
+    if (error) {
+      console.error('Error updating entry:', error);
+      res.status(500).send('Error updating entry');
+    } else {
+      res.send('Attendance updated successfully');
+    }
+  });
 });
 
 // Start the server
+const port = 5005;
 app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
+  console.log(`Server running on http://localhost:${port}`);
 });
