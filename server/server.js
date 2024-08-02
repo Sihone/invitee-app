@@ -47,9 +47,9 @@ app.post('/add', (req, res) => {
 
 // POST update attendance
 app.post('/update', (req, res) => {
-  const { id, present } = req.body;
-  const sql = 'UPDATE invitees SET present = ? WHERE id = ?';
-  pool.query(sql, [present, id], (error, results) => {
+  const { id, present, community } = req.body;
+  const sql = 'UPDATE invitees SET present = ?, community = ? WHERE id = ?';
+  pool.query(sql, [present, community, id], (error, results) => {
     if (error) {
       console.error('Error updating entry:', error);
       res.status(500).send('Error updating entry');

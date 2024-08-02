@@ -7,7 +7,7 @@ const CSVUpload = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [attendance, setAttendance] = useState({});
   const [toggleAddEntry, setToggleAddEntry] = useState(false);
-  const [checkedClicked, setCheckedClicked] = useState(null);
+  const [updatedItem, setUpdatedItem] = useState(null);
   const [newEntry, setNewEntry] = useState({
     name: '',
     email: '',
@@ -15,8 +15,8 @@ const CSVUpload = () => {
     phone: '',
     status: '',
     interest: '',
-    comment: '',
     present: 1,
+    community: 'No', // Default value
   });
   const serverUrl = "http://localhost:5005";
 
@@ -45,9 +45,9 @@ const CSVUpload = () => {
   const handleCheckboxChange = (id) => {
     setAttendance(prev => {
       const updatedAttendance = { ...prev, [id]: !prev[id] };
-      const updatedData = data.map((item, idx) => {
+      const updatedData = data.map((item) => {
         if (item.id === id) {
-          setCheckedClicked({ ...item, present: updatedAttendance[id] ? 1 : 0 });
+          setUpdatedItem({ ...item, present: updatedAttendance[id] ? 1 : 0 });
           return { ...item, present: updatedAttendance[id] ? 1 : 0 };
         } else {
           return item;
@@ -59,13 +59,13 @@ const CSVUpload = () => {
   };
 
   useEffect(() => {
-    if (checkedClicked) {
-      saveAttendance(checkedClicked);
-      setCheckedClicked(null);
+    if (updatedItem) {
+      updateItem(updatedItem);
+      setUpdatedItem(null);
     }
-  }, [checkedClicked]);
+  }, [updatedItem]);
 
-  const saveAttendance = async (item) => {
+  const updateItem = async (item) => {
     try {
       await axios.post(serverUrl + '/update', item);
       console.log('Attendance saved successfully.');
@@ -91,8 +91,8 @@ const CSVUpload = () => {
         phone: '',
         status: '',
         interest: '',
-        comment: '',
         present: 1,
+        community: 'No',
       });
       alert('New entry added successfully.');
     } catch (error) {
@@ -105,6 +105,18 @@ const CSVUpload = () => {
       return value && value.toString().toLowerCase().includes(searchTerm);
     });
   });
+  
+  const handleCommunityChange = (id, value) => {
+    const updatedData = data.map((item) => {
+      if (item.id === id && value) {
+        setUpdatedItem({ ...item, community: value });
+        return { ...item, community: value };
+      } else {
+        return item;
+      }
+    });
+    setData(updatedData);
+  }
 
   return (
     <div className="container mt-4">
@@ -181,13 +193,11 @@ const CSVUpload = () => {
             />
           </Form.Group>
           <Form.Group>
-            <Form.Label>Comment</Form.Label>
-            <Form.Control
-              type="text"
-              name="comment"
-              value={newEntry.comment}
-              onChange={handleInputChange}
-            />
+            <Form.Label>Interested in Tech Community?</Form.Label>
+            <Form.Control as="select" name="community" value={newEntry.community} onChange={handleInputChange}>
+              <option value="Yes">Yes</option>
+              <option value="No">No</option>
+            </Form.Control>
           </Form.Group>
           <Button variant="success" type="submit">Add Entry</Button>
         </Form>
@@ -203,7 +213,7 @@ const CSVUpload = () => {
             <th>Phone</th>
             <th>Status</th>
             <th>Interest</th>
-            <th>Comment</th>
+            <th>Community</th>
           </tr>
         </thead>
         <tbody>
@@ -222,7 +232,13 @@ const CSVUpload = () => {
               <td>{row.phone}</td>
               <td>{row.status}</td>
               <td>{row.interest}</td>
-              <td>{row.comment}</td>
+              <td>
+                <select value={row.community} onChange={(e) => handleCommunityChange(row.id, e.target.value)}>
+                  <option value="">No Selection</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+              </td>
             </tr>
           ))}
         </tbody>
